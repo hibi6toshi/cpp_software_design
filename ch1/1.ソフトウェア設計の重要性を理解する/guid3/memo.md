@@ -71,3 +71,20 @@ void exportDocument(JSONExportable const& exportable) {
 }
 ```
 上記のexportDocument()関数は分離されたJSONExportableインターフェースにのみ依存しており、シリアライゼーションには依存しなくなりました。ByteStreamクラスにはもう依存しておらず、疎結合にできた。
+
+## テンプレート引数の要件は最小限に
+インタフェースにより発生した依存関係を最小化するという基本的な考え型は、OOPに限らず、テンプレートにも適用できます。
+
+```C++
+template<typename InputIt, typename OutputIt>
+Output copy(InputIt first, InputIt last, OutputIt d_first);
+
+// C++20ではコンセプトを用い要件を表現できます。　
+
+template<std::input_iterator InputIt, std::output_iterator OutputIt>
+OutputIt copy(InputIt first, InputIt last, OutputIt d_first);
+```
+
+```
+std::copy()の引数は、コピー元を表す入力イテレータ2つと、コピー先を表す出力イテレータ1つです。入力イテレータと出力イテレータを明示的に要件とするのは、コピーしかしない以上当然です。これは引数に対する要件を最小化していると言えます。
+```
