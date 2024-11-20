@@ -105,3 +105,85 @@ class Document {
 JSONとシリアライゼーションの両アスペクトは、Documentクラスの重要機能ではありません。Documentクラスは全種別のドキュメントの、非常に基本的な処理を表現しているに過ぎず、またそうあるべきです。直行するアスペクトは全て分離すべきであり、これにより変更しやすさが著しく向上します。
 ```
 
+## DRY原則
+商品の階層構造
+![](/ch1/1.ソフトウェア設計の重要性を理解する/guid2/item.drawio.png)
+階層構造の最上位にはItem基底クラスがある。
+```C++
+// -----<Money.h>-----
+class Money { /*...*/ };
+
+Money operator*(Money money, double facotr);
+Money operator+(Money lhs, Money rhs);
+
+// -----<Item.h>-----
+#include <Money.h>
+
+class Item {
+  public: 
+    virtual ~Item() = default;
+    virtual Money price() const = 0;
+};
+```
+
+CppBookを考える。
+```C++
+// -----<CppBook.h>-----
+#include <Item.h>
+#include <Money.h>
+#include <string>
+
+class CppBook : public Item {
+  public: 
+    explicit CppBook(std::string title, std::string author, Money price)
+      : title_(std::move(title))
+      , author_(std::move(author))
+      , pricewithTax_(price * 1.15) // 15% tax
+    {}
+
+    std::string const& title() const { return title_; }
+    std::string const& author() const { return author_; }
+
+    Money price() const override { return pricewithTax_; }
+  
+  private:
+    std::string title_;
+    std::string author_;
+    Money pricewithTax_;
+};
+```
+
+ConferenceTicketを考える。
+```C++
+// -----<ConferenceTicket.h>-----
+#include <Item.h>
+#include <Money.h>
+#include <string>
+
+class ConferenceTicket : public Item {
+  public:
+    explicit ConferenceTicket(std::string name, Money price)
+     : name_(std::move(name))
+     , priceWithTax_(price * 1.15) // 15% tax
+    {}
+
+    std::string const& name() const { return name_; } 
+
+    Money price() const override { return priceWithTax_; }
+  
+  private:
+    std::string name_;
+    Money priceWithTax_;
+}
+```
+
+CppBookにもConferenceTicketにも同じように価格に課税される。
+
+商品別に個別に価格を指定できるため、SRPを遵守していて、バリエーションポイントを切り出し、独立させているように見える。
+ただし、現状では、税率変更の影響はItemクラスから派生した全クラスに及ぶ。
+
+```
+SRPがバリエーションポイントの分離をいうように、開発コード全体を通じ情報が重複しないよう注意すべきです。全ての場面で単一責任を実現すべきであり、個々の責任はシステム内で1箇所にしか存在しないようにすべきです。
+この考え方を一般に**DRY原則**といいます。重要な情報を複数箇所に記述してはならない　ー　変更が1箇所に済むようなシステムを設定しなさい という意味です。
+理想的には、税率が１箇所にしか登場せず変更が容易であるべきです。
+```
