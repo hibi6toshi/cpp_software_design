@@ -90,3 +90,82 @@ Seiralizationは**全ドキュメント種別に依存しなければならず**
 拡張性はソフトウェア設計時に意識的に検討する必要がある、またある決まった方法で開発ソフトウェアを拡張する必要が生じるということは、関心の分離の必要性を強く示唆しているの2点を如実に示しています。
 開発ソフトウェアが将来どう拡張されるかを押さえておく、その**カスタマイゼーションポイント**を特定する、さらにその拡張を容易に行えるよう設計する の3点が肝要です。
 ```
+
+## コンパイル時拡張性
+標準ライブラリは拡張性を備えた設計となっています。
+注目に値するのは、拡張性と言っても規定クラスを用いているわけではなく、関数オーバーロード、テンプレート、（クラス）テンプレートの特殊化を基盤としている点です。
+
+関数オーバーロードによる拡張の良い例は、std::swap()アルゴリズムです。
+C++11以降、std::swap()は次のように定義されています。
+```C++
+namespace std {
+  template <typename T>
+  void swap(T& a, T& b) {
+    T tmp(std::move(a));
+    a = std::move(b);
+    b = std::move(tmp);
+  }
+} // namespace std
+```
+
+std::swap()は関数テンプレートとして定義されているため、任意の型で使用できます。
+しかし、特に注意を要する型もあります。std::swap()では交換できない、もしくはするべきではないけど（効率的にmoveできないなどの理由から）、他の方法を用いれば効率的に交換可能な型です。そうはいっても、値型は交換可能であるべきです。
+```
+値型、もしくは値ライクな型は、noexceptな交換関数の提供を検討すべきである。
+```
+C++ Code Guidelines
+https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines
+
+そのような型を独自に定義したならば、std::swap()をオーバーロードする方法が使えます。
+```C++
+namespace custom {
+  class CustomType {
+    /* Implementation that requires a special form of swap */
+  };
+
+  void swap(CustomType& a, CustomType& b) {
+    /* Special swap implementation for swapping two instances of CustomType */
+  }
+} // namespace custom
+```
+
+swap()を正しく使用すれば上例の専用関数がコールされ、CustomTypeの2インスタンスを交換できます。
+```C++
+template<typename T>
+void some_function(T& value) {
+  // ...
+  T tmp(/*...*/);
+
+  using std::swap;  // Enable the compiler to consider std::swap() for the subsequent swap() call
+  swap(tmp, value); // Swap the two values; thanks to the unqualified call
+                    // and thanks to ADL this would call `custom::swap()`
+                    // in case `T` is `CustomType`
+}
+```
+
+開発者が独自の型や動作を加えられるよう、std::swap()が**カスタマイゼーションポイント**として設計されているのは明らかです。
+標準ライブラリの全てのアルゴリズムも同様です。std::find()とstd::find_if()を例に考えてみましょう。
+```C++
+template<typename InputIt, typename T>
+constexpr InputIt find(InputIt first, InputIt last, T const& value);
+
+template<typename InputIt, typename UnaryPredicate>
+constexpr InputIt find_if(InputIt first, InputIt last, UnaryPredicate p);
+```
+
+テンプレート引数、また対応するコンセプトという形のおかげで、std::find()もstd::find_if()も暗黙に（他のアルゴリズムも全てそうですが）、検索に独自の（イテレータ）型を使用できます。
+さらにstd::find_if()では、要素の比較方法もカスタマイズできます。これらの関数が拡張性やカスタマイズ性を意識して設計されたのは間違いありません。
+
+**カスタマイゼーションポイント**で最後に挙げるのはテンプレートの特殊化の例です。このアプローチは、例えば、std::hashクラステンプレートで採用されています。
+std::swap()の例で列挙したCustomTypeを再び例にすれば、次のようにstd::hashを明示的に特殊化できます。
+```C++
+template<>
+struct std::hash<CustomType> {
+  std::size_t operator() (customTYpe const& v) const noexcept {
+    return /*...*/;
+  }
+}
+```
+std::hashは、その設計のおかげで、どんな型にも対応できます。最大の特徴は既存コードを修正する必要がない点です。個別に特殊化すれば、専用の要件に対応できます。
+標準ライブラリのほぼ全てが、将来の拡張とカスタマイズに備えた設計になっています。標準ライブラリはアーキテクチャ上、最上位に位置しているため、他のどのコードにも一切依存していないのです。
+開発コードは全て標準ライブラリに依存します。
