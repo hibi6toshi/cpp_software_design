@@ -21,6 +21,11 @@
       "file": "ch1/1.ソフトウェア設計の重要性を理解する/guid3/memo.md",
       "description": "動的言語的にやるなら、必要な属性しか渡さない的なことになるのかなぁ",
       "line": 65
+    },
+    {
+      "file": "ch1/1.ソフトウェア設計の重要性を理解する/guid4/memo.md",
+      "description": "なんとなくStrategyぽいことがしたい？",
+      "line": 122
     }
   ]
 }
