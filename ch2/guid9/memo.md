@@ -52,3 +52,66 @@ SRPに正しく従うには上位で抽象化するしか方法はありませ�
 依存関係を正しく逆転させるには、抽象化を上位に**所有させなければなりません。**
 
 ファイル配置もアーキテクチャの中で上位・下位を表現する方法であり、上位のディレクトリに抽象化を配置することで、依存関係を逆転させることができます。
+
+## プラグインアーキテクチャの依存関係逆転
+読者がテキストエディタの開発をしているとします。
+エディタの核となるEditorクラスがあります。他の開発者は、プラグインという形で新機能を追加でき、開発に参加できるような構造にしたいと考えています。
+
+![](ch2/guid9/editor1.drawio.png)
+**良くないプラグインアーキテクチャ:  上位のEditorクラスが下位のVimModePluginクラスへ依存している**
+
+図に示したアーキテクチャは、発展性に欠けます。
+Editorクラスはアーキテクチャの上位であり、主開発者の支配下にあります。一方、VimModePluginクラスはアーキテクチャの下位にあり、ファンコミニュティのものです。
+ここで、EditorクラスがVimModePluginクラスに直接依存しているため、また、この構造ではファンコミュニティがインターフェースを好きに定義できるため、新規プラグインが追加される度にEditorクラスを変更しなければなりません。
+
+Editorクラスはすべての具象プラグインクラスに依存してはいけません。Plugin基底クラスのような形で抽象化し、Editorクラスはこの抽象化に依存すべきです。
+この構造を改善するために、Plugin基底クラスを導入します。
+
+![](ch2/guid9/editor2.drawio.png)
+**良くないプラグインアーキテクチャ: 上位のEditorクラスが下位のPluginクラスへ依存している**
+
+この構造では、ローカルな依存関係逆転が行われています。EditorクラスはPlugin基底クラスに依存しており、具象プラグインクラスには依存していません。
+ただし、アーキテクチャの上位であるEditorクラスが下位のPluginクラスに依存しているため、依然として依存関係逆転が不十分です。
+
+この誤った関係をコードで表すと次のようになります。
+```C++
+//---<thirdparty/Plugin.h>---
+class Plugin { /* ... */ }; // Define the requirements for plugins
+
+//---<thirdparty/VimModePlugin.h>---
+#include <thirdparty/Plugin.h>
+
+class VimModePlugin : public Plugin { /* ... */ };
+
+//---<editor_library/Editor.h>---
+#include <thirdparty/VimModePlugin.h> // Wrong direction of dependencies
+                                      // 誤った方向の依存関係
+
+class Editor { /* ... */ };
+```
+
+正しいプラグインアーキテクチャを構築する唯一の方法は、上位での抽象化です。主開発者が抽象化を**支配しなければなりません**。決してファンコミュニティ（サードパーティの開発者）に抽象化を支配させてはいけません。
+アーキテクチャ上のこの依存関係を解決し、Editorクラスからプラグインへの依存関係を排除します。
+この構造ならば、依存関係を正しく逆転しているためDIPに従っており、また抽象化が上位に位置しているためSRPにも従っています。
+
+![](ch2/guid9/editor3.drawio.png)
+**正しいプラグインアーキテクチャ: 下位のVimModePluginクラスが上位のPluginクラスに依存している**
+
+コード上でも、VimModePluginクラスが、ライブラリのPluginクラスに依存していることがわかります。
+```C++
+//---<editor_library/Plugin.h>----
+class Plugin { /* ... */ }; // Define the requirements for plugins
+
+//---<editor_library/Editor.h>---
+#include <editor_library/Plugin.h> 
+
+class Editor { /* ... */ };
+
+//---<thirdparty/VimModePlugin.h>---
+#include <editor_library/Plugin.h> // Correct direction of dependencies
+                                   // 正しい方向の依存関係
+class VimModePlugin : public Plugin { /* ... */ };
+```
+ここでも、依存関係を正しく逆転するには、上位が抽象化を所有しなければなりません。この例で言えば、Pluginクラスは一連の要件を表現し、全プラグインはこの要件に従わなければなりません。
+Editorクラスは要件を定義かつ所有するのであり、プラグイン（*多分このプラグインは具体的なプラグインを指していると思う）には依存しません。様々なプラグインが要件に依存するのです。
+これが依存関係の逆転です。DIPは抽象化を導入するだけではなく、その所有権をも含むのです。
