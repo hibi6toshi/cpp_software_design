@@ -133,3 +133,53 @@ OutpuIt copy_if(INputIt first, InputIt last, OutpuIt d_ifrst, unaryPredicate pre
 
 ![](ch2/guid9/copy_if.drawio.png)
 **STLアルゴリズムの依存関係**
+
+## オーバーロードセットを介した依存関係逆転
+依存関係を逆転する方法は継承階層とコンセプトだけでありません。抽象化であればどの種類でも可能です。オーバーロードセットも用いてもDIPに従うようにできるます。
+オーバーロードセットも抽象化であり、意味的な要件や期待する内容を表現するものです。
+残念ながら基底クラスやコンセプトのように要件を明示的には記述できませんが、アーキテクチャの上位が要件を所有する限りは、依存関係逆転を実現できます。
+Widgetクラスを例に考えてみましょう。
+
+```C++
+//---<Widget.h>---
+#include <utility>
+
+template typename T>
+struct Widget {
+  T value;
+};
+
+template<typename T>
+void swap(Widget<T>& lhs, Widget<T>& rhs) {
+  using std::swap;
+  swap(lhs.value, rhs.value);
+}
+```
+
+上例のWidgetは未知の型Tのメンバ変数を保持します。Tが未知であっても、意味的に期待する内容を構築すれば、Widget専用のswap()関数は実装可能です。
+上例の実装はT用のswap()関数が期待される内容を全て満たし、LSPに従う限り正しく動作します。
+
+```C++
+#include <Widget.h>
+#include <assert>
+#include <cstdlib>
+#include <string>
+
+int main() {
+  Widget<std::string> w1{"Hello"};
+  Widget<std::string> w2{"World"};
+
+  swap(w1, w2);
+
+  assert(w1.value == "World");
+  assert(w2.value == "Hello");
+
+  return EXIT_SUCCESS;
+}
+```
+結果的にWidget用のswap()関数自身は期待される内容を満たし、派生クラスの場合と同様にオーバーロードセットに加わります。swap()オーバーロードセットの依存構造をは以下です。
+
+![](ch2/guid9/swap.drawio.png)
+**swap()オーバーロードセットの依存関係**
+
+要件や期待される内容がアーキテクチャの上位にあり、またswap()の実装が全てその要件に依存しているため、依存関係を表す矢印は下位から上位へ向いています。依存関係を正しく逆転したのです。
