@@ -1,0 +1,11 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "ch2",
+  "steps": [
+    {
+      "file": "ch2/guid9/memo.md",
+      "description": "イメージ的には、コア機能用のディレクトリと、その他の機能（サードパーティ）用のディレクトリを分けることで、コア機能が他の機能に依存しないようにする。",
+      "line": 54
+    }
+  ]
+}
